@@ -1,0 +1,17 @@
+{
+   "format_version" : 1,
+   "header" : {
+      "description" : "Semakin nyata dengan shader ini.\nCreator : AhZanMC \n§cYT : AhZanMC \n§fIG : @ahzanmcreal",    
+"name" : "§eAhZanDer Pack §6v0.2.0",
+      "uuid" : "8132918d-795c-34ec-c3e1-613b4d9ebed4",
+      "version" : [ 0, 2, 0 ]
+   },
+   "modules" : [
+      {
+         "description" : "Semakin nyata dengan shader ini.\nCreator : AhZanMC \n§cYT : AhZanMC \n§fIG : @ahzanmcreal",
+         "type" : "resources",
+         "uuid" : "53644fac-b476-42f5-125f-a3dff160a9ad",
+         "version" : [ 0, 2, 0 ]
+      }
+   ]
+}

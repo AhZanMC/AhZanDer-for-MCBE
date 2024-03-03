@@ -1,0 +1,48 @@
+Info Changelog AhZanDer Pack
+=================================
+Texture : AhZanDer Pack
+Creator : AhZanMC
+=================================
+
+/// Changelog ///
+Versi 0.2.0
+1.) Noise Water Wave (Air lebih terlihat realistis)
+2.) Underwater (Ada Caustic)
+3.) Dirlight
+4.) NormalMap dihapus
+5.) Update Pewarnaan Nether
+6.) Pewarnaan Dimensi End
+7.) Sunbeam Bisa Muter
+8.) Sunrise/Sunset Reflection
+9.) Fix Bug
+	- Fix bug pada warna daun
+	- Fix bug pada nether
+
+Versi 0.1.0
+1.) Torch Berwarna Kuning
+2.) Air dan daun bergerak
+3.) Lens Flare
+4.) Awan bergerak dan realistis
+5.) Grass lebih cerah
+6.) Pewarnaan di nether
+7.) Fog/Kabut
+8.) Pewarnaan Malam Hari (udah kuubah biar sedikit terang)
+9.) Underwater (No caustic)
+10.) Sunbeam
+11.) Player Shadow
+12.) NormalMap (Maaf kalo jelek)
+13.) Air lebih keren
+14.) Glowing ore (bisa kedip)
+
+Note : Ini adalah versi pertama.
+
+Versi 0.0.1 Beta
+1.) Torch Berwarna Kuning
+2.) Air dan daun bergerak
+3.) Lens Flare
+4.) Awan bergerak dan realistis
+5.) Grass lebih cerah
+6.) Pewarnaan di nether
+7.) Dll
+
+Note : ini masih beta ya

@@ -1,0 +1,43 @@
+// __multiversion__
+// This signals the loading code to prepend either #version 100 or #version 300 es as apropriate.
+
+//code from Cleos Shader by Irsad (creator Bicubic Shader)
+
+#include "vertexVersionSimple.h"
+
+#include "uniformWorldConstants.h"
+#include "uniformPerFrameConstants.h"
+#include "uniformShaderConstants.h"
+
+attribute mediump vec4 POSITION;
+attribute vec4 COLOR;
+
+varying vec4 color;
+varying highp vec3 pos;
+
+const float fogNear = 0.3;
+
+void main()
+{
+    gl_Position = WORLDVIEWPROJ * (POSITION);
+
+pos = POSITION.xyz;
+
+vec4 f_color =FOG_COLOR;
+vec4 l_f_color =max(f_color,vec4(0.3));
+vec4 s_color =CURRENT_COLOR;
+
+float rain_flag = (1.0-pow(FOG_CONTROL.y,5.0));
+
+vec4 sky_color = vec4(pow(f_color.r,1.0)*0.25,pow(f_color.g,1.0)*0.45,f_color.b*0.8,f_color.a);
+
+sky_color.rgb = mix(sky_color.rgb,s_color.rgb*0.5,rain_flag);
+
+sky_color.rgb = max(sky_color.rgb,vec3(0.0,0.1,0.2));
+       
+float cr =COLOR.r*0.8;
+float mid = mix(cr*2.5,cr/1.0,min(sky_color.b,1.0));
+color = mix(sky_color,f_color,min(max(mid,0.0),1.0));
+
+
+}

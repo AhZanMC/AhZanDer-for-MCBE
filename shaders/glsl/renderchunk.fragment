@@ -1,0 +1,312 @@
+// __multiversion__
+// This signals the loading code to prepend either #version 100 or #version 300 es as apropriate.
+/*
+Shader : AhZanDer Pack
+Creator : AhZanMC
+*/
+
+#include "fragmentVersionCentroid.h"
+
+#if __VERSION__ >= 300
+	#ifndef BYPASS_PIXEL_SHADER
+		#if defined(TEXEL_AA) && defined(TEXEL_AA_FEATURE)
+			_centroid in highp vec2 uv0;
+			_centroid in highp vec2 uv1;
+		#else
+			_centroid in vec2 uv0;
+			_centroid in vec2 uv1;
+		#endif
+	#endif
+#else
+	#ifndef BYPASS_PIXEL_SHADER
+		varying vec2 uv0;
+		varying vec2 uv1;
+	#endif
+#endif
+
+varying vec4 color;
+varying highp vec3 position;
+varying highp vec3 wpos;
+varying vec3 look;
+
+//Ini Noise ya temen-temen
+highp float hash(
+	highp float u){
+return fract(sin(u)*43758.5453);
+	}
+
+highp float noise( highp vec2 x ){
+	highp vec2 p = floor(x);
+	highp vec2 f = fract(x);
+    f = f*f*(3.0-2.0*f);
+
+    highp float n = p.x + p.y*57.0;
+return mix(mix( hash(n+  0.0), hash(n+  1.0),f.x),
+	mix( hash(n+ 57.0), hash(n+ 58.0),f.x),f.y);
+}
+
+//Player Shadow
+float inrect(vec2 pos, float x1, float y1, float x2, float y2, float focus){
+ return min(1.0, max(min(min(pos.x - x1, x2 - pos.x), min(pos.y - y1, y2 - pos.y)), 0.0) / focus);
+}
+
+float playershadow(){
+vec3 lookvector=look;
+lookvector.x*=2.1;
+ vec3 pos = lookvector + vec3(0.4, 0.4, 0.4); 
+ vec3 dir = vec3(-1.0, (1.25) * 0.31, 0.0);
+ float factor = 1.0;
+ if (pos.x < 0.2){
+  factor = max(0.0, pos.x / 0.4 + 0.5);
+ }
+pos += dir * pos.x;
+ float focus = .06;
+ float footwalk = sin((position.x - lookvector.x) * 2.0 + (position.z - lookvector.z) * 2.0);
+float handswalk = sin((position.x - lookvector.x) * 2.0 + (position.z - lookvector.z)) * .5;
+pos.yz -= vec2(.2, .4);
+ float body = max(inrect(pos.yz, -1.5 + footwalk*.4, -0.25, 0.75, .1, focus), inrect(pos.yz, -1.5 - footwalk*.4, -.1, 0.75, 0.25, focus));
+ float hands = max(inrect(pos.yz, -0.5 + footwalk * .1, -0.5, 0.25, .1, focus), inrect(pos.yz, -0.5 - footwalk * 0.1, -.1, 0.25, 0.5, focus));
+ return min(1.0, max(body, hands)) * factor;
+}
+
+//Saturasi
+vec3 saturate(vec3 rgb, float adjustment){
+const vec3 W = vec3(0.2125, 0.7154, 0.0721);
+vec3 intensity = vec3(dot(rgb, W));
+return mix(intensity, rgb, adjustment);
+}
+
+#ifdef FOG
+varying vec4 fogColor;
+#endif
+
+#include "uniformShaderConstants.h"
+#include "util.h"
+uniform vec2 FOG_CONTROL;
+uniform vec4 FOG_COLOR;
+uniform float RENDER_DISTANCE;
+uniform highp float TIME;
+uniform highp float TOTAL_REAL_WORLD_TIME;
+
+LAYOUT_BINDING(0) uniform sampler2D TEXTURE_0;
+LAYOUT_BINDING(1) uniform sampler2D TEXTURE_1;
+LAYOUT_BINDING(2) uniform sampler2D TEXTURE_2;
+
+void main()
+{
+#ifdef BYPASS_PIXEL_SHADER
+	gl_FragColor = vec4(0, 0, 0, 0);
+	return;
+#else 
+
+#if USE_TEXEL_AA
+	vec4 diffuse = texture2D_AA(TEXTURE_0, uv0);
+#else
+	vec4 diffuse = texture2D(TEXTURE_0, uv0);
+#endif
+	
+#ifdef SEASONS_FAR
+	diffuse.a = 1.0;
+#endif
+
+#if USE_ALPHA_TEST
+	#ifdef ALPHA_TO_COVERAGE
+	#define ALPHA_THRESHOLD 0.05
+	#else
+	#define ALPHA_THRESHOLD 0.5
+	#endif
+	if(diffuse.a < ALPHA_THRESHOLD)
+		discard;
+#endif
+	
+vec4 inColor = color;
+vec4 deteksi = texture2D(TEXTURE_0,uv0+vec2(0.0158,0.0));
+float waktu = texture2D(TEXTURE_1, vec2(0.,1.)).r;
+
+#if defined(BLEND)
+	diffuse.a *= inColor.a;
+#endif
+
+//Deteksi nether
+bool nether = (FOG_COLOR.r>FOG_COLOR.b && FOG_COLOR.r<0.5 && FOG_COLOR.b<0.2);
+//Deteksi End
+bool End = (FOG_COLOR.r > FOG_COLOR.g && FOG_COLOR.b > FOG_COLOR.g && FOG_COLOR.r < 0.05 && FOG_COLOR.b < 0.05 && FOG_COLOR.g < 0.05);
+
+//Grass Cerah
+#ifdef SEASONS
+if( color.g > color.b ) diffuse.g *= 1.75;
+#endif
+
+//Pewarnaan malam hari
+vec4 diff2 = texture2D( TEXTURE_1, uv1 );
+vec3 night = vec3(1.5,1.5,2.0);
+
+diff2.rgb *= pow(diff2.rgb , 1.0 - night);
+
+
+#if !defined(ALWAYS_LIT)
+	diffuse *= diff2;
+#endif
+
+#ifndef SEASONS
+	#if !USE_ALPHA_TEST && !defined(BLEND)
+		diffuse.a = inColor.a;
+	#endif
+	
+	diffuse.rgb *= inColor.rgb;
+#else
+	vec2 uv = inColor.xy;
+	diffuse.rgb *= mix(vec3(1.0,1.0,1.0), texture2D( TEXTURE_2, uv).rgb*2.0, inColor.b);
+	diffuse.rgb *= inColor.aaa;
+	diffuse.a = 1.0;
+#endif
+
+//Ore by PersipDiamond
+if(deteksi.b > 0.99 && deteksi.r <= 0.63 && deteksi.g < 0.01){
+waktu = max(0.0, min(1.0,(waktu-0.5)*2.0));
+float malamd = 1.0-waktu*uv1.y;
+float goa = smoothstep(.5,.0, uv1.y);
+
+#if !defined(ALWAYS_LIT)
+highp vec3 shine = mix(mix(vec3(7.0),vec3(800.0),goa),vec3(-10.1), uv1.x);
+highp float kedip_light = sin(cos(sin(TIME*3.5)));
+diffuse.rgb *= mix(vec3(0.3),shine,malamd)*kedip_light;
+#endif
+
+#if !defined(ALWAYS_LIT)
+diffuse.rgb += sin(cos(sin(TIME)));
+diffuse.rgb -= .3;
+#endif
+}
+
+/*
+Ini Deteksi & Debug Texture GLOW.Jangan dihapus tanda "//",atau nanti error.
+*/
+//diffuse = deteksi;
+//diffuse = texture2D(TEXTURE_0,p.xz/16.);
+
+//Pewarnaan Overworld
+if(nether==false){
+diffuse.rgb *= vec3(1.7,1.6,1.5); //Day
+diffuse.rgb = saturate(diffuse.rgb, 1.2); //Saturasi
+}
+
+//Shadow
+if(color.a != 0.0){
+float area = smoothstep(.885,.875,uv1.y);
+
+vec3 kena = mix(vec3(5.0),vec3(1.0),uv1.x);
+
+diffuse.rgb *=mix(vec3(1.0), vec3(0.5),area);
+}
+
+//Pengaktifan Player shadow
+vec2 uvl=uv1;
+uvl.y-=playershadow()*0.26;
+diffuse *= texture2D(TEXTURE_1, uvl);
+
+//Side Shadow
+if(color.a != 0.0){
+if(color.g<0.64 || uv1.y<0.874){diffuse.rgb *= vec3(0.98)+uv1.x*vec3(0.02);}
+if(color.g<0.63 || uv1.y<0.873){diffuse.rgb *= vec3(0.94)+uv1.x*vec3(0.06);}
+if(color.g<0.62 || uv1.y<0.872){diffuse.rgb *= vec3(0.88)+uv1.x*vec3(0.12);}
+if(color.g<0.61 || uv1.y<0.871){diffuse.rgb *= vec3(0.8)+uv1.x*vec3(0.2);}
+}
+
+if(color.a==0.0){
+diffuse.rgb *= 1.5;
+diffuse.rgb *= color.g*1.3;
+}
+
+//Pewarnaan torch
+diffuse.rgb += diffuse.rgb*(vec3(1.5,0.5,0.0)*1.15)*pow(uv1.x*1.2,4.5);
+
+//Dirlek
+if(End==false){
+if(nether==false){
+highp vec3 block = normalize(cross(dFdx(position), dFdy(position)));
+float dirlight = max(0.0,max(block.z,-block.z));
+diffuse.rgb *= mix(1.5,0.45,dirlight)+uv1.x*vec3(0.30);}}
+
+//Hujan
+if(End==false){
+if(nether==false){
+float rain_detect = 1.0-pow(FOG_CONTROL.y,11.0);
+diffuse.rgb += vec3(-0.2,-0.17,-0.1);
+
+if(uv1.y>0.875){
+if(fract(position.y)==0.0){
+diffuse.rgb += sin(position.x+position.y+position.z)*0.08*rain_detect;
+}}}}
+
+//FOG
+vec3 fog = mix(diffuse.rgb, FOG_COLOR.rgb*vec3(1.4,1.5,1.7), clamp(length(-wpos)/RENDER_DISTANCE*1.0,0.1,0.6));
+
+diffuse.rgb = fog;
+
+//Water
+#ifdef BLEND
+if(color.b>color.r){
+diffuse.rgb *= vec3(0.0);
+diffuse.rgb += vec3(0.0,0.5,0.65);
+
+diffuse.rgb += clamp(length(wpos.xz)/RENDER_DISTANCE*2.0,0.0,1.0)*vec3(0.4,0.4,0.4);
+diffuse.a *= clamp(length(wpos.xyz*3.0)/RENDER_DISTANCE*1.0,0.3,1.0);
+
+highp float FauzanGanteng = sin(noise(vec2(wpos.x+wpos.y+wpos.z)+sin(TIME*2.5+wpos.x)));
+diffuse.rgb += FauzanGanteng*0.09; //tingkat kekerasan air
+
+if(FOG_COLOR.r*1.0>FOG_COLOR.b){
+diffuse.rgb += clamp(1.0-length(-wpos.z*10.0)/RENDER_DISTANCE*1.0,0.0,1.0)*vec3(2.0,1.78,0.0)*length(-wpos.x)/RENDER_DISTANCE*1.0;
+}}
+#endif
+
+//Nether
+if(nether==true){
+diffuse.rgb *= vec3(1.8,1.4,1.2);
+
+diffuse.rgb = saturate(diffuse.rgb, 1.0);
+
+diffuse.rgb += diffuse.rgb*(vec3(1.5,0.5,0.0)*1.15)*pow(uv1.x*1.3,4.5);
+
+vec3 nether_fog = mix(diffuse.rgb, FOG_COLOR.rgb*vec3(0.5,5.5,5.5), clamp(length(-wpos)/RENDER_DISTANCE*1.5,0.0,1.0));
+diffuse.rgb = nether_fog;
+}
+
+//Sunbeam
+if(nether==false){
+if(FOG_COLOR.r*1.0>FOG_COLOR.b){
+vec3 beam = noise(vec2(TIME*0.3+wpos.z/wpos.y))*vec3(1.3,0.75,0.17);
+vec3 sunbeam = mix(vec3(0.0), beam, clamp(length(wpos)/RENDER_DISTANCE*1.7,0.0,1.0));
+diffuse.rgb += sunbeam;}}
+
+//Underwater
+if(nether==false){
+if(FOG_CONTROL.x==0.0){
+
+diffuse.rgb *= vec3(0.05,0.55,0.95);
+
+highp float caustic = sin(position.x+position.y+position.z)+sin(TIME*4.0+position.x);
+diffuse.rgb += caustic*vec3(0.0,0.1,0.3)*uv1.y;
+
+diffuse.rgb += diffuse.rgb*(vec3(1.4,1.5,1.7)*1.15)*pow(uv1.x*1.2,5.0);
+}}
+
+if(End == true){
+	diffuse.rgb += vec3(2.0,0.0,2.0)*pow(uv1.x*1.1,6.0);
+	diffuse.rgb = saturate(diffuse.rgb, 1.0);
+	diffuse.rgb *= vec3(1.0,1.5,5.5);
+	
+	vec3 End_fog = mix(diffuse.rgb, FOG_COLOR.rgb*vec3(1.0,1.5,5.5), clamp(length(-wpos)/RENDER_DISTANCE*1.5,0.0,1.0));
+	diffuse.rgb = End_fog;
+}
+
+
+#ifdef FOG
+	diffuse.rgb = mix( diffuse.rgb, fogColor.rgb, fogColor.a );
+#endif
+
+	gl_FragColor = diffuse;
+	
+#endif // BYPASS_PIXEL_SHADER
+}
